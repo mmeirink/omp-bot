@@ -14,7 +14,7 @@ type Commander interface {
 }
 
 type InsuranceCommander struct {
-	bot                *tgbotapi.BotAPI
+	bot          *tgbotapi.BotAPI
 	carCommander Commander
 }
 
@@ -25,7 +25,6 @@ func NewInsuranceCommander(
 		bot: bot,
 		// carCommander
 		carCommander: car.NewCarCommander(bot, carService.NewDummyCarService()),
-
 	}
 }
 

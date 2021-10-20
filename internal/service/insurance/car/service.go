@@ -14,44 +14,63 @@ type CarService interface {
 }
 
 func (d DummyCarService) Describe(carID uint64) (*insurance.Car, error) {
-	car, ok := d.storage[carID]
-	if !ok {
+	if carID >= uint64(len(d.storage)) {
 		return nil, fmt.Errorf("no car with id %d", carID)
 	}
-	return &car, nil
+	return &d.storage[carID], nil
 }
 
 func (d DummyCarService) List(cursor uint64, limit uint64) ([]insurance.Car, error) {
-	return []insurance.Car{}, nil
+	if cursor >= uint64(len(d.storage)) {
+		return nil, fmt.Errorf("no car with id %d", cursor)
+	}
+	high := uint64(len(d.storage))
+	if cursor + limit < high {
+		high = cursor + limit
+	}
+	return d.storage[cursor:high], nil
 }
 
-func (d DummyCarService) Create(car insurance.Car) (uint64, error) {
-	return 0, nil
+func (d *DummyCarService) Create(car insurance.Car) (uint64, error) {
+	d.storage = append(d.storage, car)
+	return uint64(len(d.storage) - 1), nil
 }
 
-func (d DummyCarService) Update(carID uint64, car insurance.Car) error {
+func (d *DummyCarService) Update(carID uint64, car insurance.Car) error {
+	if carID >= uint64(len(d.storage)) {
+		return fmt.Errorf("no car with id %d", carID)
+	}
+	d.storage[carID] = car
 	return nil
 }
 
-func (d DummyCarService) Remove(carID uint64) (bool, error) {
-	_, ok := d.storage[carID]
-	if !ok {
-		return false, nil
+func (d *DummyCarService) Remove(carID uint64) (bool, error) {
+	if carID >= uint64(len(d.storage)) {
+		return false, fmt.Errorf("no car with id %d", carID)
 	}
-	delete(d.storage, carID)
+	copy(d.storage[carID:], d.storage[carID+1:])
+	d.storage = d.storage[:len(d.storage)-1]
 	return true, nil
 }
 
 type DummyCarService struct {
-	storage map[uint64]insurance.Car
+	storage []insurance.Car
 }
 
 func NewDummyCarService() *DummyCarService {
 	return &DummyCarService{
-		storage: map[uint64]insurance.Car{
-			0: insurance.Car{ID: 0,	Title: "Toyota"},
-			1: insurance.Car{ID: 1,	Title: "Nissan"},
-			2: insurance.Car{ID: 2,	Title: "Infinity"},
+		storage: []insurance.Car{
+			{Title: "Toyota"},
+			{Title: "Nissan"},
+			{Title: "Infinity"},
+			{Title: "Mazda"},
+			{Title: "Honda"},
+			{Title: "Lexus"},
+			{Title: "Acura"},
+			{Title: "Suzuki"},
+			{Title: "Isuzu"},
+			{Title: "Mitsubishi"},
+			{Title: "Subaru"},
 		},
 	}
 }

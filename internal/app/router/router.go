@@ -131,7 +131,7 @@ func (c *Router) handleCallback(callback *tgbotapi.CallbackQuery) {
 	case "license":
 		break
 	case "insurance":
-		c.demoCommander.HandleCallback(callback, callbackPath)
+		c.insuranceCommander.HandleCallback(callback, callbackPath)
 	case "payment":
 		break
 	case "storage":

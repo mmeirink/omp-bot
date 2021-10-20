@@ -1,7 +1,6 @@
 package insurance
 
 type Car struct {
-	ID uint64
 	Title string
 }
 
