@@ -24,7 +24,7 @@ type CarCommander interface {
 
 type CarCommanderImpl struct {
 	bot             *tgbotapi.BotAPI
-	service         *carService.CarService
+	service         carService.CarService
 	defaultPageSize uint64
 }
 
@@ -49,32 +49,26 @@ func (c *CarCommanderImpl) Get(inputMsg *tgbotapi.Message) {
 
 	idx, err := strconv.ParseUint(args, 10, 0)
 	if err != nil {
-		log.Println("wrong args", args)
+		msg := "Wrong args! Should be id of the car to get"
+		log.Println(msg, args)
+		c.sendMessageToUser(inputMsg.Chat.ID, msg)
 		return
 	}
 
-	car, err := (*c.service).Describe(idx)
+	car, err := c.service.Describe(idx)
 	var msgToShow string
 	if err != nil {
 		log.Printf("fail to get car with idx %d: %v", idx, err)
 		msgToShow = fmt.Sprintf("failed to get car with idx %d", idx)
 	} else {
-		msgToShow = car.Title
+		msgToShow = car.String()
 	}
 
-	msg := tgbotapi.NewMessage(
-		inputMsg.Chat.ID,
-		msgToShow,
-	)
-
-	_, err = c.bot.Send(msg)
-	if err != nil {
-		log.Printf("CarCommander.Get: error sending reply message to chat - %v", err)
-	}
+	c.sendMessageToUser(inputMsg.Chat.ID, msgToShow)
 }
 
 func (c *CarCommanderImpl) listPage(chatID int64, cursor, pageSize uint64) (*tgbotapi.MessageConfig, error) {
-	cars, err := (*c.service).List(cursor, pageSize)
+	cars, err := c.service.List(cursor, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +76,7 @@ func (c *CarCommanderImpl) listPage(chatID int64, cursor, pageSize uint64) (*tgb
 	var b strings.Builder
 	b.WriteString("Here is the paged list of the cars: \n\n")
 	for _, c := range cars {
-		b.WriteString(c.Title)
+		b.WriteString(c.String())
 		b.WriteString("\n")
 	}
 
@@ -149,28 +143,20 @@ func (c *CarCommanderImpl) Delete(inputMsg *tgbotapi.Message) {
 	}
 
 	var msgToShow string
-	_, errr := (*c.service).Remove(idx)
-	if errr != nil {
+	_, err = c.service.Remove(idx)
+	if err != nil {
 		log.Printf("failed to delete car with idx %d: %v", idx, err)
 		msgToShow = fmt.Sprintf("failed to delete car with idx %d", idx)
 	} else {
 		msgToShow = "deleted successfully"
 	}
 
-	msg := tgbotapi.NewMessage(
-		inputMsg.Chat.ID,
-		msgToShow,
-	)
-
-	_, err = c.bot.Send(msg)
-	if err != nil {
-		log.Printf("CarCommander.Get: error sending reply message to chat - %v", err)
-	}
+	c.sendMessageToUser(inputMsg.Chat.ID, msgToShow)
 }
 
 func (c *CarCommanderImpl) New(inputMsg *tgbotapi.Message) {
 	argsString := inputMsg.CommandArguments()
-	id, err := (*c.service).Create(insurance.Car{Title: argsString})
+	id, err := c.service.Create(insurance.Car{Title: argsString})
 	if err != nil {
 		log.Printf("CarCommander.New: error sending reply message to chat - %v", err)
 		return
@@ -198,7 +184,7 @@ func (c *CarCommanderImpl) Edit(inputMsg *tgbotapi.Message) {
 	}
 
 	errMsg = fmt.Sprintf("Successfully edited car with id %d", carID)
-	err = (*c.service).Update(carID, insurance.Car{Title: args[1]})
+	err = c.service.Update(carID, insurance.Car{Title: args[1]})
 	if err != nil {
 		log.Printf("CarCommander.Edit:  - %v", err)
 		errMsg = fmt.Sprintf("Failed to edit car with id %d", carID)
@@ -245,5 +231,5 @@ func (c CarCommanderImpl) HandleCommand(message *tgbotapi.Message, commandPath p
 }
 
 func NewCarCommander(bot *tgbotapi.BotAPI, service carService.CarService) CarCommanderImpl {
-	return CarCommanderImpl{bot: bot, service: &service, defaultPageSize: 3}
+	return CarCommanderImpl{bot: bot, service: service, defaultPageSize: 3}
 }
