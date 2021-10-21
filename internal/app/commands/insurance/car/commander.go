@@ -54,14 +54,17 @@ func (c *CarCommanderImpl) Get(inputMsg *tgbotapi.Message) {
 	}
 
 	car, err := (*c.service).Describe(idx)
+	var msgToShow string
 	if err != nil {
 		log.Printf("fail to get car with idx %d: %v", idx, err)
-		return
+		msgToShow = fmt.Sprintf("failed to get car with idx %d", idx)
+	} else {
+		msgToShow = car.Title
 	}
 
 	msg := tgbotapi.NewMessage(
 		inputMsg.Chat.ID,
-		car.Title,
+		msgToShow,
 	)
 
 	_, err = c.bot.Send(msg)
@@ -76,13 +79,14 @@ func (c *CarCommanderImpl) listPage(chatID int64, cursor, pageSize uint64) (*tgb
 		return nil, err
 	}
 
-	outputMsgText := "Here is the paged list of the cars: \n\n"
+	var b strings.Builder
+	b.WriteString("Here is the paged list of the cars: \n\n")
 	for _, c := range cars {
-		outputMsgText += c.Title
-		outputMsgText += "\n"
+		b.WriteString(c.Title)
+		b.WriteString("\n")
 	}
 
-	msg := tgbotapi.NewMessage(chatID, outputMsgText)
+	msg := tgbotapi.NewMessage(chatID, b.String())
 
 	serializedData, _ := json.Marshal(CallbackListData{
 		Offset:   int(cursor + pageSize),
@@ -138,22 +142,24 @@ func (c *CarCommanderImpl) Delete(inputMsg *tgbotapi.Message) {
 
 	idx, err := strconv.ParseUint(args, 10, 0)
 	if err != nil {
-		log.Println("wrong args", args)
+		errorMsg := "Wrong args! Should be id of the car to delete"
+		log.Println(errorMsg, args)
+		c.sendMessageToUser(inputMsg.Chat.ID, errorMsg)
 		return
 	}
 
-	ok, err := (*c.service).Remove(idx)
-	if err != nil {
+	var msgToShow string
+	_, errr := (*c.service).Remove(idx)
+	if errr != nil {
 		log.Printf("failed to delete car with idx %d: %v", idx, err)
-		return
+		msgToShow = fmt.Sprintf("failed to delete car with idx %d", idx)
+	} else {
+		msgToShow = "deleted successfully"
 	}
-	txt := "deleted successfully"
-	if !ok {
-		txt = "failed to delete"
-	}
+
 	msg := tgbotapi.NewMessage(
 		inputMsg.Chat.ID,
-		txt,
+		msgToShow,
 	)
 
 	_, err = c.bot.Send(msg)
@@ -169,14 +175,9 @@ func (c *CarCommanderImpl) New(inputMsg *tgbotapi.Message) {
 		log.Printf("CarCommander.New: error sending reply message to chat - %v", err)
 		return
 	}
-	msg := tgbotapi.NewMessage(
-		inputMsg.Chat.ID,
-		fmt.Sprintf("Successfully added car with id %d", id),
-	)
-	_, err = c.bot.Send(msg)
-	if err != nil {
-		log.Printf("CarCommander.New: error sending reply message to chat - %v", err)
-	}
+	msgToShow := fmt.Sprintf("Successfully added car with id %d", id)
+
+	c.sendMessageToUser(inputMsg.Chat.ID, msgToShow)
 }
 
 func (c *CarCommanderImpl) Edit(inputMsg *tgbotapi.Message) {
@@ -184,20 +185,37 @@ func (c *CarCommanderImpl) Edit(inputMsg *tgbotapi.Message) {
 	args := strings.SplitN(argsString, " ", 2)
 	if len(args) != 2 {
 		log.Println("wrong args number, should be 2 but passed:", args)
+		c.sendMessageToUser(inputMsg.Chat.ID, "There are should be two args: car ID and car title!")
 		return
 	}
+	var errMsg string
 	carID, err := strconv.ParseUint(args[0], 10, 0)
 	if err != nil {
-		log.Println("wrong carID", args)
+		errMsg = "wrong carID"
+		log.Println(errMsg, args)
+		c.sendMessageToUser(inputMsg.Chat.ID, errMsg)
 		return
 	}
 
+	errMsg = fmt.Sprintf("Successfully edited car with id %d", carID)
 	err = (*c.service).Update(carID, insurance.Car{Title: args[1]})
 	if err != nil {
-		log.Printf("CarCommander.New: error sending reply message to chat - %v", err)
+		log.Printf("CarCommander.Edit:  - %v", err)
+		errMsg = fmt.Sprintf("Failed to edit car with id %d", carID)
 	}
+	c.sendMessageToUser(inputMsg.Chat.ID, errMsg)
 }
 
+func (c *CarCommanderImpl) sendMessageToUser(chatId int64, msgToShow string) {
+	msg := tgbotapi.NewMessage(
+		chatId,
+		fmt.Sprintf(msgToShow),
+	)
+	_, err := c.bot.Send(msg)
+	if err != nil {
+		log.Printf("CarCommander: error sending reply message to chat - %v", err)
+	}
+}
 func (c CarCommanderImpl) HandleCallback(callback *tgbotapi.CallbackQuery, callbackPath path.CallbackPath) {
 	switch callbackPath.CallbackName {
 	case "list":
